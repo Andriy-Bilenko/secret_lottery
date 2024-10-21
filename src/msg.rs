@@ -1,10 +1,10 @@
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::Addr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub participation_fee_uscrt: Uint128,
+    pub participation_fee_uscrt: u128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
@@ -19,9 +19,10 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // returns as json-encoded values
     GetNumOfParticipants {},
-    DidIParticipate { address: Addr },
+    DidIParticipate { address: String },
     GetLastWinner {},
     GetAllParticipants {},
+    GetParticipationFee {},
 }
 
 // We define a custom struct for each query response
@@ -39,11 +40,17 @@ pub struct DidIParticipateResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct LastWinnerResponse {
-    pub last_winner: Addr,
+    pub last_winner: String,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct AllParticipantsRespose {
-    pub all_participants: Vec<Addr>,
+    pub all_participants: Vec<String>,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+pub struct ParticipationFeeRespose {
+    pub participation_fee_uscrt: u128,
 }

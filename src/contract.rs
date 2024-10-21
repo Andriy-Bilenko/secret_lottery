@@ -1,13 +1,14 @@
 use cosmwasm_std::{
     entry_point, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Uint128,
+    StdResult,
 };
 
 use crate::msg::{
     AllParticipantsRespose, DidIParticipateResponse, ExecuteMsg, InstantiateMsg,
-    LastWinnerResponse, NumOfParticipantsResponse, QueryMsg,
+    LastWinnerResponse, NumOfParticipantsResponse, ParticipationFeeRespose, QueryMsg,
 };
-use crate::state::{config, config_read, State};
+// use crate::state::{config, config_read, State};
+use crate::state::{State, CONFIG, PARTICIPANTS};
 
 #[entry_point]
 pub fn instantiate(
@@ -17,21 +18,31 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let state = State {
-        last_winner: Addr::unchecked("0000"),
+        last_winner: "0000".to_string(),
         participants_count: 0,
         participation_fee_uscrt: msg.participation_fee_uscrt,
-        owner: info.sender.clone(),
+        owner: info.sender.clone().to_string(),
     };
 
-    config(deps.storage).save(&state)?;
+    // config(deps.storage).save(&state)?;
 
     deps.api.debug(
         format!(
-            "Contract was initialized by {}, takes {} uscrt to participate",
+            "Fuck Contract was initialized by {}, takes {} uscrt to participate",
             info.sender, msg.participation_fee_uscrt
         )
         .as_str(),
     );
+
+    // Ok(Response::default())
+
+    // let state = State {
+    //     gateway_address: msg.gateway_address,
+    //     gateway_hash: msg.gateway_hash,
+    //     gateway_key: msg.gateway_key,
+    // };
+
+    CONFIG.save(deps.storage, &state)?;
 
     Ok(Response::default())
 }
@@ -64,6 +75,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::DidIParticipate { address } => to_binary(&query_participation(deps, address)?),
         QueryMsg::GetLastWinner {} => to_binary(&query_last_winner(deps)?),
         QueryMsg::GetAllParticipants {} => to_binary(&query_all_participants(deps)?),
+        QueryMsg::GetParticipationFee {} => to_binary(&query_participation_fee(deps)?),
     }
 }
 
@@ -76,9 +88,15 @@ fn query_num_of_participants(deps: Deps) -> StdResult<NumOfParticipantsResponse>
     Ok(NumOfParticipantsResponse { num: 0 })
 }
 
-fn query_participation(deps: Deps, address: Addr) -> StdResult<DidIParticipateResponse> {
+fn query_participation_fee(deps: Deps) -> StdResult<ParticipationFeeRespose> {
+    Ok(ParticipationFeeRespose {
+        participation_fee_uscrt: 1,
+    })
+}
+
+fn query_participation(deps: Deps, address: String) -> StdResult<DidIParticipateResponse> {
     // 1. Load state
-    let state: State = config_read(deps.storage).load()?;
+    // let state: State = config_read(deps.storage).load()?;
 
     // // 2. Check if the address exists in the participants map
     // let participated = state
@@ -93,21 +111,24 @@ fn query_participation(deps: Deps, address: Addr) -> StdResult<DidIParticipateRe
 }
 
 fn query_last_winner(deps: Deps) -> StdResult<LastWinnerResponse> {
-    // 1. load state
-    let state = config_read(deps.storage).load()?;
+    // // 1. load state
+    // let state = config_read(deps.storage).load()?;
 
-    deps.api.debug("last_winner queried successfully");
+    // deps.api.debug("last_winner queried successfully");
 
-    // 2. return count response
+    // // 2. return count response
+    // Ok(LastWinnerResponse {
+    //     last_winner: state.last_winner,
+    // })
     Ok(LastWinnerResponse {
-        last_winner: state.last_winner,
+        last_winner: "0000".to_string(),
     })
 }
 
 // unsure
 fn query_all_participants(deps: Deps) -> StdResult<AllParticipantsRespose> {
     // 1. Load state
-    let state: State = config_read(deps.storage).load()?;
+    // let state: State = config_read(deps.storage).load()?;
 
     // // Create a vector to store the addresses of the participants
     // let mut participants: Vec<Addr> = Vec::new();
