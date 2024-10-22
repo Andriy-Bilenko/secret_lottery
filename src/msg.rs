@@ -1,4 +1,4 @@
-// use cosmwasm_std::Addr;
+use cosmwasm_std::Addr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // returns as json-encoded values
     GetNumOfParticipants {},
-    DidIParticipate { address: String },
+    DidIParticipate { address: Addr },
     GetLastWinner {},
     GetAllParticipants {},
     GetParticipationFee {},
@@ -40,13 +40,13 @@ pub struct DidIParticipateResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct LastWinnerResponse {
-    pub last_winner: String,
+    pub last_winner: Addr,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct AllParticipantsRespose {
-    pub all_participants: Vec<String>,
+    pub all_participants: Vec<Addr>,
 }
 
 // We define a custom struct for each query response

@@ -1,3 +1,4 @@
+use cosmwasm_std::Addr;
 use cosmwasm_std::{Deps, DepsMut, StdError, StdResult};
 use schemars::JsonSchema;
 use secret_toolkit::storage::{Keymap, KeymapBuilder};
@@ -7,18 +8,18 @@ use serde::{Deserialize, Serialize};
 pub static CONFIG: Item<State> = Item::new(b"config");
 
 // moved out of state because not serializable and to use more complex data strucutures
-pub const PARTICIPANTS: Keymap<String, bool, Bincode2> = KeymapBuilder::new(b"secrets").build();
+pub const PARTICIPANTS: Keymap<Addr, bool, Bincode2> = KeymapBuilder::new(b"secrets").build();
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct State {
     pub participation_fee_uscrt: u128,
-    pub last_winner: String,
+    pub last_winner: Addr,
     pub participants_count: i32, // temporarily unused
-    pub owner: String,
+    pub owner: Addr,
 }
 
 // to get a winner address
-pub fn get_addr_at_index(deps: Deps, index: u32) -> StdResult<String> {
+pub fn get_addr_at_index(deps: Deps, index: u32) -> StdResult<Addr> {
     // first check if index is not too big compared to participants length
     if index + 1 > PARTICIPANTS.get_len(deps.storage).unwrap() {
         return Err(StdError::generic_err(
@@ -39,13 +40,13 @@ pub fn get_addr_at_index(deps: Deps, index: u32) -> StdResult<String> {
     ));
 }
 // to add address to participants
-pub fn add_participant(deps: DepsMut, participant: String) {
+pub fn add_participant(deps: DepsMut, participant: Addr) {
     PARTICIPANTS
         .insert(deps.storage, &participant, &false)
         .unwrap();
 }
 // check if a participant
-pub fn is_participant(deps: Deps, addr: String) -> StdResult<bool> {
+pub fn is_participant(deps: Deps, addr: Addr) -> StdResult<bool> {
     Ok(PARTICIPANTS.contains(deps.storage, &addr))
 }
 
@@ -58,7 +59,7 @@ pub fn clear_participants(deps: DepsMut) {
     }
 }
 // return a Vec<Addr>
-pub fn get_all_participants_vector(deps: Deps) -> StdResult<Vec<String>> {
+pub fn get_all_participants_vector(deps: Deps) -> StdResult<Vec<Addr>> {
     let participants = &PARTICIPANTS;
     let mut iter = participants.iter_keys(deps.storage).unwrap();
     let mut keys = Vec::new();

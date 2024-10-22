@@ -1,3 +1,4 @@
+use cosmwasm_std::Addr;
 use cosmwasm_std::BalanceResponse;
 use cosmwasm_std::BankMsg;
 use cosmwasm_std::BankQuery;
@@ -8,20 +9,21 @@ use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 
-// TODO: use Addr for addresses instead of String
+// TODONE: use Addr for addresses instead of String
 // TODO: use State.participants_count instead of PARTICIPANTS.get_len(deps.storage).unwrap()
 // TODO: use errors defined in error.rs
-// TODO: test it REALLY works
+// TODONE: test it REALLY works
 // TODO: unit and integration tests
+// TODONE: update the last winner
+// TODONE: clean map after end of lottery
 
 use crate::msg::{
     AllParticipantsRespose, DidIParticipateResponse, ExecuteMsg, InstantiateMsg,
     LastWinnerResponse, NumOfParticipantsResponse, ParticipationFeeRespose, QueryMsg,
 };
-// use crate::state::{config, config_read, State};
 use crate::state::{
-    add_participant, get_addr_at_index, get_all_participants_vector, is_participant, State, CONFIG,
-    PARTICIPANTS,
+    add_participant, clear_participants, get_addr_at_index, get_all_participants_vector,
+    is_participant, State, CONFIG, PARTICIPANTS,
 };
 
 #[entry_point]
@@ -32,10 +34,10 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let state = State {
-        last_winner: "0001".to_string(),
+        last_winner: Addr::unchecked("0000"),
         participants_count: 0,
         participation_fee_uscrt: msg.participation_fee_uscrt,
-        owner: info.sender.clone().to_string(),
+        owner: info.sender.clone(),
     };
     deps.api.debug(
         format!(
@@ -62,14 +64,15 @@ pub fn instantiate(
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Participate {} => try_participate(deps, info),
-        ExecuteMsg::EndLottery {} => try_end_lottery(deps, env),
+        ExecuteMsg::EndLottery {} => try_end_lottery(deps, env, info),
     }
 }
 
 pub fn try_participate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     // let required_fee: u128 = CONFIG.load(deps.storage)?.participation_fee_uscrt;
     // Define the required fee in u128
-    let required_fee: u128 = 1_000_000; // Example: 1 SCRT (in smallest unit)
+    // let required_fee: u128 = 1_000_000; // Example: 1 SCRT (in smallest unit)
+    let required_fee: u128 = CONFIG.load(deps.storage)?.participation_fee_uscrt;
 
     // Get the amount of SCRT sent with the message
     let sent_amount: Uint128 = info.funds.iter().fold(Uint128::zero(), |acc, coin| {
@@ -98,11 +101,17 @@ pub fn try_participate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> 
         )
         .as_str(),
     );
-    add_participant(deps, info.sender.to_string());
+    add_participant(deps, info.sender);
     Ok(Response::default())
 }
 
-pub fn try_end_lottery(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn try_end_lottery(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+    // check if owner to end the lottery
+    if info.sender != CONFIG.load(deps.storage)?.owner {
+        return Err(cosmwasm_std::StdError::generic_err(format!(
+            "Cannot end lottery, you're not the owner"
+        )));
+    }
     // 0. check if at all can end the lottery
     let participants_count = PARTICIPANTS.get_len(deps.storage).unwrap();
     if participants_count == 0 {
@@ -133,24 +142,39 @@ pub fn try_end_lottery(deps: DepsMut, env: Env) -> StdResult<Response> {
         denom: "uscrt".to_string(),
     }))?;
     let amount: u128 = balance.amount.amount.into();
-    // 3. send money to that address
+
+    deps.api.debug(
+        format!(
+            "=================================================Sending {:?} uscrt to winner {:?}==================================================",
+            amount, random_addr
+        )
+        .as_str(),
+    );
+
     let coins = vec![Coin {
         denom: "uscrt".to_string(),
         amount: amount.into(), // Convert u128 to Uint128
     }];
 
+    // 4. update the last winner
+    CONFIG.update(deps.storage, |mut state| -> Result<_, StdError> {
+        state.last_winner = random_addr.clone();
+        Ok(state)
+    })?;
+
+    // 5. clean PARTICIPANTS map after end of lottery
+    clear_participants(deps);
+
+    // 6. send scrt to the winner
     let send_msg = BankMsg::Send {
-        to_address: random_addr.clone(),
+        to_address: random_addr.to_string().clone(),
         amount: coins,
     };
-
     Ok(Response::new()
         .add_message(send_msg)
         .add_attribute("action", "send_scrt")
         .add_attribute("recipient", random_addr)
         .add_attribute("amount", amount.to_string()))
-
-    // Ok(Response::default())
 }
 
 #[entry_point]
@@ -176,7 +200,7 @@ fn query_participation_fee(deps: Deps) -> StdResult<ParticipationFeeRespose> {
     })
 }
 
-fn query_participation(deps: Deps, address: String) -> StdResult<DidIParticipateResponse> {
+fn query_participation(deps: Deps, address: Addr) -> StdResult<DidIParticipateResponse> {
     Ok(DidIParticipateResponse {
         participated: is_participant(deps, address)?,
     })

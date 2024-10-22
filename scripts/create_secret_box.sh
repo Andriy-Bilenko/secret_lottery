@@ -156,17 +156,24 @@ function create_contract() {
 # fi
 
 function main() {
+    log "building the contract.wasm.gz...."
+    make build
+
     log '              <####> Create Secret Box contract <####>'
     log "secretcli version in the docker image is: $(secretcli version)\n"
 
     localsecret_lcd=$LOCALSECRET_LCD
     log -e "LocalSecret URL: $localsecret_lcd\n"
 
-    log "=== setting up the wallet..."
+    # log "=== setting up the wallet..."
     # create_new_wallet_and_fund
 
     local init_msg
-    init_msg='{"count": 16876}'
+    # init_msg='{"count": 16876}'
+    init_msg='{"participation_fee_uscrt": "500000"}'
+
+    log "INIT MESSAGE: $init_msg"
+
     code_id="$(upload_contract '.')"
     contract_hash="$(query_contract_hash "$code_id")"
     contract_addr="$(create_contract "$init_msg" "$code_id")"
@@ -179,7 +186,7 @@ function main() {
 
     log 'Storing env variables...'
     echo -e "CHAIN_ID=$CHAIN_ID\nSECRET_BOX_CODE=$code_id\nSECRET_BOX_ADDRESS=$contract_addr\nSECRET_BOX_HASH=$contract_hash\nLOCALSECRET_LCD=$localsecret_lcd" >.env
-    echo -e "VITE_CHAIN_ID=$CHAIN_ID\nVITE_SECRET_BOX_CODE=$code_id\nVITE_SECRET_BOX_ADDRESS=$contract_addr\nVITE_SECRET_BOX_HASH=$contract_hash\nVITE_LOCALSECRET_LCD=$localsecret_lcd" >app/.env
+    # echo -e "VITE_CHAIN_ID=$CHAIN_ID\nVITE_SECRET_BOX_CODE=$code_id\nVITE_SECRET_BOX_ADDRESS=$contract_addr\nVITE_SECRET_BOX_HASH=$contract_hash\nVITE_LOCALSECRET_LCD=$localsecret_lcd" >app/.env
     echo -e "CHAIN_ID=$CHAIN_ID\nSECRET_BOX_CODE=$code_id\nSECRET_BOX_ADDRESS=$contract_addr\nSECRET_BOX_HASH=$contract_hash\nLOCALSECRET_LCD=$localsecret_lcd" >tests/.env
     echo -e "set CHAIN_ID $CHAIN_ID\nset SECRET_BOX_CODE $code_id\nset SECRET_BOX_ADDRESS $contract_addr\nset SECRET_BOX_HASH $contract_hash\nset LOCALSECRET_LCD $localsecret_lcd" >.env.fish       # for fish shell
     echo -e "set CHAIN_ID $CHAIN_ID\nset SECRET_BOX_CODE $code_id\nset SECRET_BOX_ADDRESS $contract_addr\nset SECRET_BOX_HASH $contract_hash\nset LOCALSECRET_LCD $localsecret_lcd" >tests/.env.fish # for fish shell
