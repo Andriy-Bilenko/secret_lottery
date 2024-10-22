@@ -1,58 +1,77 @@
-use cosmwasm_std::{Addr, DepsMut, StdResult, Storage};
-use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
-// use cw_storage_plus::Map;
+use cosmwasm_std::{Deps, DepsMut, StdError, StdResult};
 use schemars::JsonSchema;
-// use secret_storage_plus::Map;
-use secret_toolkit::storage::{Keymap, KeymapBuilder, WithoutIter};
+use secret_toolkit::storage::{Keymap, KeymapBuilder};
 use secret_toolkit::{serialization::Bincode2, storage::Item};
 use serde::{Deserialize, Serialize};
 
 pub static CONFIG: Item<State> = Item::new(b"config");
 
-// pub static CONFIG_KEY: &[u8] = b"config"; // identifier for State, for simpler namespace management and to organise state data to be in a predictable place
-
 // moved out of state because not serializable and to use more complex data strucutures
-// pub const PARTICIPANTS: Map<String, bool> = Map::new("participants");
-pub const PARTICIPANTS: Keymap<String, bool, Bincode2, WithoutIter> =
-    KeymapBuilder::new(b"secrets").without_iter().build();
+pub const PARTICIPANTS: Keymap<String, bool, Bincode2> = KeymapBuilder::new(b"secrets").build();
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct State {
     pub participation_fee_uscrt: u128,
     pub last_winner: String,
-    pub participants_count: i32,
+    pub participants_count: i32, // temporarily unused
     pub owner: String,
 }
 
-// pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
-//     singleton(storage, CONFIG_KEY)
-// }
-
-// pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
-//     singleton_read(storage, CONFIG_KEY)
-// }
-
 // to get a winner address
-pub fn get_addr_at_index(index: u32) {}
+pub fn get_addr_at_index(deps: Deps, index: u32) -> StdResult<String> {
+    // first check if index is not too big compared to participants length
+    if index + 1 > PARTICIPANTS.get_len(deps.storage).unwrap() {
+        return Err(StdError::generic_err(
+            "index out of bounds at get_addr_at_index()",
+        ));
+    }
+    let participants = &PARTICIPANTS;
+    let mut iter = participants.iter_keys(deps.storage).unwrap();
+    let mut start_index = 0;
+    while let Some(key_result) = iter.next() {
+        if start_index == index {
+            return Ok(key_result.unwrap());
+        }
+        start_index += 1;
+    }
+    return Err(StdError::generic_err(
+        "unknown error in get_addr_at_index()",
+    ));
+}
 // to add address to participants
-pub fn add_participant(participant: String) {}
+pub fn add_participant(deps: DepsMut, participant: String) {
+    PARTICIPANTS
+        .insert(deps.storage, &participant, &false)
+        .unwrap();
+}
 // check if a participant
-pub fn is_participant(deps: DepsMut, addr: String) -> StdResult<bool> {
-    // SECRETS
-    //     .insert(
-    //         deps.storage,
-    //         &"virefbvueyr".to_string(),
-    //         &"vouifrbief".to_string(),
-    //     )
-    //     .unwrap();
-    // let rez = SECRETS.contains(deps.storage, &Addr::unchecked("0000"));
-    // let participant_exists = PARTICIPANTS.may_load(storage, addr.to_string()).unwrap();
-    // Ok(rez)
-    Ok(false)
-    // Ok(PARTICIPANTS.may_load(storage, &addr)?.is_some())
+pub fn is_participant(deps: Deps, addr: String) -> StdResult<bool> {
+    Ok(PARTICIPANTS.contains(deps.storage, &addr))
 }
 
 // cleaning up after ending the lottery
-pub fn clear_participants() {}
+pub fn clear_participants(deps: DepsMut) {
+    let participants = &PARTICIPANTS;
+    let keys = get_all_participants_vector(deps.as_ref()).unwrap();
+    for key in keys {
+        participants.remove(deps.storage, &key).unwrap();
+    }
+}
 // return a Vec<Addr>
-pub fn get_all_participants_vector() {}
+pub fn get_all_participants_vector(deps: Deps) -> StdResult<Vec<String>> {
+    let participants = &PARTICIPANTS;
+    let mut iter = participants.iter_keys(deps.storage).unwrap();
+    let mut keys = Vec::new();
+    while let Some(key_result) = iter.next() {
+        match key_result {
+            Ok(key) => keys.push(key),
+            Err(e) => {
+                return Err(StdError::generic_err(format!(
+                    "Error iterating keys: {}",
+                    e
+                )))
+            }
+        }
+    }
+    Ok(keys)
+}
