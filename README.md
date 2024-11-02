@@ -2,27 +2,30 @@
 > currently using `secretcli 1.15.0-beta.7` and `secretjs@1.15.0-beta.0`
 ## First setup
 clone the repo, then:
-`mv .env.example .env` and populate mnemonics there
-`mv scrt_lottery_react_app/.env.example scrt_lottery_react_app/.env` and populate mnemonics there
-`npm install`
-`cd scrt_lottery_react_app/`
-`npm install`
+- `mv .env.example .env` and populate mnemonics there
+- `mv scrt_lottery_react_app/.env.example scrt_lottery_react_app/.env` and populate mnemonics there
+- `npm install`
+- `cd scrt_lottery_react_app/`
+- `npm install`
+
 if by any chance you're trying to run everything on localnet don't forget to have instance of localsecret running with:
+
 ```bash
 docker run -it -p 9091:9091 -p 26657:26657 -p 1317:1317 -p 5000:5000 \
       --name localsecret -v ~/.secretd:/root/.secretd ghcr.io/scrtlabs/localsecret:v1.15.0-beta.7
 ```
 
 ## Build, Store, Instantiate the contract
-`make clean` <sub>cleans cargo and .wasm files</sub>
-`make build` <sub>builds with cargo, runs dockerised wasm optimizer and compiles `scripts/` (may take some time, if fails due to network problems - simply clean build)</sub>
-`make network-local` or `make network-testnet` <sub>sets on which network to proceed to `.env`'s</sub>
-`make store` <sub>calls script from `scripts/` storing the contract</sub>
-`make instantiate` <sub>calls script from `scripts/` instantiating the contract</sub>
+- `make clean` <sub>cleans cargo and .wasm files</sub>
+- `make build` <sub>builds with cargo, runs dockerised wasm optimizer and compiles `scripts/` (may take some time, if fails due to network problems - simply clean build)</sub>
+- `make network-local` or `make network-testnet` <sub>sets on which network to proceed to `.env`'s</sub>
+- `make store` <sub>calls script from `scripts/` storing the contract</sub>
+- `make instantiate` <sub>calls script from `scripts/` instantiating the contract</sub>
+
 
 ## Run frontend
-`cd scrt_lottery_react_app`
-`npm start`
+- `cd scrt_lottery_react_app`
+- `npm start`
 
 ## secretcli
 ### if you want to use secretcli dont forget to setup its configurations:
