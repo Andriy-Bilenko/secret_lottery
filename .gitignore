@@ -20,4 +20,5 @@ contract.wasm*
 .env.fish
 
 node_modules/
+dist/
 
