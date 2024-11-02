@@ -18,3 +18,6 @@ contract.wasm*
 
 .env
 .env.fish
+
+node_modules/
+

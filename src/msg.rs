@@ -23,6 +23,7 @@ pub enum QueryMsg {
     GetLastWinner {},
     GetAllParticipants {},
     GetParticipationFee {},
+    GetOwner{},
 }
 
 // We define a custom struct for each query response
@@ -41,6 +42,12 @@ pub struct DidIParticipateResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct LastWinnerResponse {
     pub last_winner: Addr,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+pub struct OwnerResponse {
+    pub owner: Addr,
 }
 
 // We define a custom struct for each query response

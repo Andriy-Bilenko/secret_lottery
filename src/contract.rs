@@ -18,13 +18,24 @@ use cosmwasm_std::{
 // TODONE: clean map after end of lottery
 
 use crate::msg::{
-    AllParticipantsRespose, DidIParticipateResponse, ExecuteMsg, InstantiateMsg,
+    AllParticipantsRespose, DidIParticipateResponse, OwnerResponse, ExecuteMsg, InstantiateMsg,
     LastWinnerResponse, NumOfParticipantsResponse, ParticipationFeeRespose, QueryMsg,
 };
 use crate::state::{
     add_participant, clear_participants, get_addr_at_index, get_all_participants_vector,
     is_participant, State, CONFIG, PARTICIPANTS,
 };
+// use cosmwasm_std::{
+//     entry_point, to_binary, Addr, BalanceResponse, BankMsg, BankQuery, Binary, Coin, Deps, DepsMut,
+//     Env, MessageInfo, QueryRequest, Response, StdError, StdResult, Uint128,
+// };
+
+// // TODO: use State.participants_count instead of PARTICIPANTS.get_len(deps.storage).unwrap()
+// // TODO: use errors defined in error.rs
+// // TODO: unit and integration tests
+
+
+
 
 #[entry_point]
 pub fn instantiate(
@@ -185,12 +196,19 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetLastWinner {} => to_binary(&query_last_winner(deps)?),
         QueryMsg::GetAllParticipants {} => to_binary(&query_all_participants(deps)?),
         QueryMsg::GetParticipationFee {} => to_binary(&query_participation_fee(deps)?),
+        QueryMsg::GetOwner {} => to_binary(&query_owner(deps)?),
     }
 }
 
 fn query_num_of_participants(deps: Deps) -> StdResult<NumOfParticipantsResponse> {
     Ok(NumOfParticipantsResponse {
         num: PARTICIPANTS.get_len(deps.storage).unwrap(),
+    })
+}
+
+fn query_owner(deps: Deps) -> StdResult<OwnerResponse> {
+    Ok(OwnerResponse {
+        owner: CONFIG.load(deps.storage)?.owner,
     })
 }
 
