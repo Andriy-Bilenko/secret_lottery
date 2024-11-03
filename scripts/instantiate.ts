@@ -73,7 +73,7 @@ let instantiate_contract = async (participationFeeUscrt: string) => {
 		if (network_config == "0") {//localnet
 			writeToEnv(envPathPrefix + scriptsEnvPath, envVarPrefix + "CONTRACT_ADDRESS_LOCALNET", contractAddress.toString());
 		} else if (network_config == "1") {//testnet
-			writeToEnv(envPathPrefix + scriptsEnvPath, envVarPrefix + "CONTRACT_ADDRESS_TESTNET", codeId.toString());
+			writeToEnv(envPathPrefix + scriptsEnvPath, envVarPrefix + "CONTRACT_ADDRESS_TESTNET", contractAddress.toString());
 		}
 	});
 	console.log("writing to .env's done.")

@@ -1,420 +1,436 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SecretNetworkClient, MsgExecuteContract, Wallet } from "secretjs";
-import { Window as KeplrWindow } from "@keplr-wallet/types";
-
-// npm install
-// npm start
+import { OfflineAminoSigner, Window as KeplrWindow } from "@keplr-wallet/types";
 
 declare global {
-  interface Window extends KeplrWindow { }
+	interface Window extends KeplrWindow { }
 }
 
-const wallet = new Wallet(process.env.REACT_APP_MNEMONIC);
+const DATA_REFRESH_RATE_MILLISECONDS = 10000;
 
-const chainId = process.env.REACT_APP_CHAIN_ID!;
-const codeId = process.env.REACT_APP_CODE_ID!;
-const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS!;
-const contractCodeHash = process.env.REACT_APP_CONTRACT_CODE_HASH!;
-const lcdUrl = process.env.REACT_APP_LCD_URL!;
+// localnet
+let wallet: Wallet | undefined;
+// testnet
+let signer: OfflineAminoSigner | undefined;
+//both
+let chainId: string;
+let lcdUrl: string;
+let codeId: string;
+let contractAddress: string;
+let contractCodeHash: string;
 
-console.log(`local url = ${lcdUrl}`);
+const network_config = process.env.REACT_APP_NETWORK!;
+//console.log("network: " + network_config);
+
+let secretjs: SecretNetworkClient | undefined;
+
+if (network_config == "0") {// localnet
+	chainId = process.env.REACT_APP_CHAIN_ID_LOCALNET!;
+	lcdUrl = process.env.REACT_APP_LCD_URL_LOCALNET!;
+	codeId = process.env.REACT_APP_CODE_ID_LOCALNET!;
+	contractCodeHash = process.env.REACT_APP_CONTRACT_CODE_HASH_LOCALNET!;
+	contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS_LOCALNET!;
+} else {// testnet
+	chainId = process.env.REACT_APP_CHAIN_ID_TESTNET!;
+	lcdUrl = process.env.REACT_APP_LCD_URL_TESTNET!;
+	codeId = process.env.REACT_APP_CODE_ID_TESTNET!;
+	contractCodeHash = process.env.REACT_APP_CONTRACT_CODE_HASH_TESTNET!;
+	contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS_TESTNET!;
+};
+
 console.log(`chainId = ${chainId}`);
+console.log(`local url = ${lcdUrl}`);
 console.log(`code id = ${codeId}`);
 console.log(`contract hash = ${contractCodeHash}`);
 console.log(`contract address = ${contractAddress}`);
 
-let secretjs: SecretNetworkClient | undefined;
-
-// let keplrOfflineSigner: OfflineAminoSigner;
-let myWalletAddr: string | undefined;
-
-
+const USCRT_PER_SCRT = 1_000_000;
 const convertUscrtToScrt = (uscrtString: string): number => {
-  try {
-    // Validate that the input string is a valid number
-    if (!/^\d+$/.test(uscrtString)) {
-      throw new Error(`Invalid input for uscrt: ${uscrtString}`);
-    }
-
-    const uscrtValue = BigInt(uscrtString); // Use BigInt for large numbers
-    const scrtValue = Number(uscrtValue) / 1_000_000; // Convert to SCRT
-    return scrtValue;
-  } catch (error) {
-    console.error("Error converting uSCRT to SCRT:", error);
-    return 0; // Return a default value or handle the error as needed
-  }
+	try {
+		if (!/^\d+$/.test(uscrtString)) {
+			throw new Error(`Invalid input for uscrt: ${uscrtString}`);
+		}
+		const uscrtValue = BigInt(uscrtString);
+		const scrtValue = Number(uscrtValue) / USCRT_PER_SCRT;
+		return scrtValue;
+	} catch (error) {
+		console.error("Error converting uSCRT to SCRT:", error);
+		return 0; //  default value
+	}
 };
 
 const convertScrtToUscrt = (scrtValue: number): string => {
-  try {
-    // Validate that the input is a valid number
-    if (isNaN(scrtValue) || scrtValue < 0) {
-      throw new Error(`Invalid input for SCRT: ${scrtValue}`);
-    }
-
-    // Convert SCRT to uSCRT (1 SCRT = 1,000,000 uSCRT)
-    const uscrtValue = BigInt(scrtValue * 1_000_000); // Use BigInt for large numbers
-
-    return uscrtValue.toString(); // Return as string or you can return BigInt directly
-  } catch (error) {
-    console.error("Error converting SCRT to uSCRT:", error);
-    return "0"; // Return a default value or handle the error as needed
-  }
+	try {
+		if (isNaN(scrtValue) || scrtValue < 0) {
+			throw new Error(`Invalid input for SCRT: ${scrtValue}`);
+		}
+		const uscrtValue = BigInt(scrtValue * USCRT_PER_SCRT);
+		return uscrtValue.toString();
+	} catch (error) {
+		console.error("Error converting SCRT to uSCRT:", error);
+		return "0"; // default value
+	}
 };
-
-
-const getKeplrWalletAddress = async () => {
-  if (chainId == "secretdev-1") {
-    // local address from mnemonic
-    return wallet.address;
-  } else {
-
-    // Check if Keplr is installed
-    if (window.getOfflineSigner) {
-      const chainId = "pulsar-3"; // Replace with your desired chain ID, e.g., "cosmoshub-4"
-
-      try {
-        // Request permission to access the account
-        const offlineSigner = window.getOfflineSigner(chainId);
-        await offlineSigner.getAccounts(); // This prompts the user to connect their wallet
-
-        // Retrieve the accounts
-        const accounts = await offlineSigner.getAccounts();
-        if (accounts.length > 0) {
-          const walletAddress = accounts[0].address; // Get the first account's address
-          console.log("Connected wallet address:", walletAddress);
-          return walletAddress;
-        } else {
-          console.log("No accounts found");
-          return null;
-        }
-      } catch (error) {
-        console.error("Error connecting to Keplr wallet:", error);
-        return null;
-      }
-    } else {
-      console.log("Please install Keplr!");
-      return null;
-    }
-  }
-};
-
 
 const App: React.FC = () => {
-  const [connectKeplrBtnText, setConnectKeplrBntText] = useState<string>("connect Keplr");
-  const [isWalletConnected, setIswalletConnected] = useState(false);
-  const [imOwner, setImOwner] = useState(false);
+	const [connectWalletBtnText, setConnectWalletBntText] = useState<string>("connect Wallet");
 
-  const [participationFeeScrt, setParticipationFeeScrt] = useState<number>(0);
-  const [isParticipant, setIsParticipant] = useState<string>("_");
-  const [lastWinner, setLastWinner] = useState<string>("_");
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [owner, setOwnerText] = useState<string>("_");
-  const [participantsCount, setParticipantsCount] = useState<number>(0);
+	const [participationFeeScrt, setParticipationFeeScrt] = useState<number>(0);
+	const [isParticipant, setIsParticipant] = useState<string>("_");
+	const [lastWinner, setLastWinner] = useState<string>("_");
+	const [participants, setParticipants] = useState<string[]>([]);
+	const [owner, setOwnerText] = useState<string>("_");
+	const [participantsCount, setParticipantsCount] = useState<number>(0);
 
-  const [winningPool, setWinningPool] = useState<string>("_");
+	const [winningPool, setWinningPool] = useState<string>("_");
 
-  async function requestKeplr(): Promise<string> {
-    if (chainId == "secretdev-1") {
-      // localsecret
-      // setting secret js client
-      secretjs = new SecretNetworkClient({
-        chainId: chainId,
-        url: lcdUrl,
-        wallet: wallet,
-        walletAddress: wallet.address,
-      });
-      myWalletAddr = wallet.address;
-      alert("connected localsecret: " + myWalletAddr);
-      console.log("wallet: " + wallet);
-      console.dir(wallet, { depth: null });
-    } else {
-      if (!window.keplr) {
-        alert("Please install keplr extension");
-        return "";
-      }
+	useEffect(() => {
+		// Set up polling
+		const intervalId = setInterval(() => {
+			// Only poll if the user is connected
+			if (secretjs != undefined) {
+				queryLotteryInfo();
+			}
+		}, DATA_REFRESH_RATE_MILLISECONDS); // Poll every xx seconds
+		// Cleanup on component unmount
+		return () => clearInterval(intervalId);
+	}, []);
 
-      // Enabling before using the Keplr is recommended.
-      // This method will ask the user whether to allow access if they haven't visited this website.
-      // Also, it will request that the user unlock the wallet if the wallet is locked.
-      await window.keplr.enable(chainId);
+	async function toggleConnectWallet() {
+		if (secretjs != undefined) {// disconnect
+			if (network_config == "0") {// localnet
+				wallet = undefined;
+			} else {// testnet
+				if (window.keplr) {
+					await window.keplr?.disable(chainId);
+				}
+				signer = undefined;
+			}
+			secretjs = undefined;
+			setConnectWalletBntText("connect Wallet");
+			setParticipationFeeScrt(0);
+			setIsParticipant("_");
+			setLastWinner("_");
+			setParticipants([]);
+			setOwnerText("_");
+			setParticipantsCount(0);
+			setWinningPool("_");
+		} else {// connect
+			if (network_config == "0") {// localnet
+				wallet = new Wallet(process.env.REACT_APP_MNEMONIC_LOCALNET!); // hardcoded wallet "a"
+				alert(`we connect your localnet wallet 'a' (${wallet.address})`);
+				secretjs = new SecretNetworkClient({
+					chainId: chainId,
+					url: lcdUrl,
+					wallet: wallet,
+					walletAddress: wallet.address,
+				});
+				console.log("localnet wallet: ");
+				console.dir(wallet, { depth: null });
+			} else {// testnet
+				if (!window.keplr) {
+					alert("Please install keplr extension");
+					return;
+				}
+				// Enabling before using the Keplr is recommended.
+				// This method will ask the user whether to allow access if they haven't visited this website.
+				// Also, it will request that the user unlock the wallet if the wallet is locked.
+				await window.keplr.enable(chainId);
 
-      const offlineSigner = window.keplr.getOfflineSigner(chainId);
+				signer = window.keplr.getOfflineSignerOnlyAmino(chainId);
+				let myWalletAddr: string;
+				[{ address: myWalletAddr }] = await signer.getAccounts()
 
-      // You can get the address/public keys by `getAccounts` method.
-      // It can return the array of address/public key.
-      // But, currently, Keplr extension manages only one address/public key pair.
-      // XXX: This line is needed to set the sender address for SigningCosmosClient.
-      const accounts = await offlineSigner.getAccounts();
+				console.log("Initializing Secret.js client ...");
+				secretjs = new SecretNetworkClient({
+					url: lcdUrl,
+					chainId: chainId,
+					wallet: signer,
+					walletAddress: myWalletAddr,
+					encryptionUtils: window.keplr.getEnigmaUtils(chainId),
+				});
+				console.log(`Created client for wallet address: ${myWalletAddr}`);
+			}
+			setConnectWalletBntText("connected: " + secretjs.address + ", wanna disconnect?")
+			await queryLotteryInfo();
+		}
+	}
 
-      console.log("accounts: ", accounts);
-      console.log("offlineSigner: ", offlineSigner);
+	async function queryLotteryInfo() {
+		let owner = await queryOwner();
+		setOwnerText(owner);
+		let participantCount = await queryParticipantsCount();
+		setParticipantsCount(participantCount);
+		let participationFee = await queryParticipationFee();
+		setParticipationFeeScrt(participationFee);
+		setWinningPool((participationFee * participantCount).toString());
 
-      const keplrOfflineSigner = window.keplr.getOfflineSignerOnlyAmino(chainId);
-      [{ address: myWalletAddr }] = await keplrOfflineSigner.getAccounts();
+		let lastWinner = await queryLastWinner();
+		setLastWinner(lastWinner);
 
-      console.log("Initializing Secret.js client ...");
-      secretjs = new SecretNetworkClient({
-        url: lcdUrl,
-        chainId: chainId,
-        wallet: keplrOfflineSigner,
-        walletAddress: myWalletAddr,
-        encryptionUtils: window.keplr.getEnigmaUtils(chainId),
-      });
-    }
-    console.log(`Created client for wallet address: ${myWalletAddr}`);
-    setConnectKeplrBntText("connected: " + myWalletAddr + ", wanna disconnect?")
-    setIswalletConnected(true);
+		let isParticipant = await queryParticipated();
+		setIsParticipant(isParticipant ? "yes" : "no");
 
-    await queryOwner();
-    //await queryParticipantsCount();
-    //await queryParticipationFee();
-    setWinningPool(((await queryParticipationFee()) * (await queryParticipantsCount())).toString());
-    console.log("COUNTING WINNING POOL")
-    console.log("participant count: " + participantsCount)
-    console.log("pool: " + (participationFeeScrt * participantsCount))
-    console.log("COUNTING WINNING POOL")
-    await queryLastWinner();
-    await queryParticipated();
-    await queryParticipants();
+		let participants = await queryParticipants();
+		setParticipants(participants);
+	}
 
-    return myWalletAddr!;
+	const queryParticipants = async (): Promise<string[]> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
 
-  }
+		type AllParticipantsRespose = { all_participants: string[] };
+		let response: AllParticipantsRespose;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { get_all_participants: {} },
+			}) as AllParticipantsRespose;
+		} catch (e) {
+			console.log(`error quering all participants: query contract error`);
+			return [];
+		}
+		// Check if the response has an error
+		if ('err"' in response!) {
+			console.log(`error quering all participants: ${response}`);
+			return [];
 
+		}
 
-  const queryParticipants = async () => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+		console.log("queried smart contract: ", response);
+		return response.all_participants;
+	};
 
-    type AllParticipantsRespose = { all_participants: string[] };
+	const queryParticipated = async (): Promise<boolean> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
 
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { get_all_participants: {} },
-    }) as AllParticipantsRespose;
+		type DidIParticipateResponse = { participated: boolean };
+		let response: DidIParticipateResponse;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { did_i_participate: { address: secretjs!.address } },
+			}) as DidIParticipateResponse;
+		} catch (e) {
+			console.log(`error quering whether participated: query contract error`);
+			return false;
+		}
+		// Check if response is an object and contains the 'err' property
+		if ('err"' in response!) {
+			console.log(`error quering whether participated: ${response}`);
+			return false;
+		}
 
-    //// Check if the response has an error
-    //if (typeof response === 'object' && 'err' in response) {
-    //  throw new Error(`Query failed with the following err: ${JSON.stringify(response)}`);
-    //}
+		console.log("queried smart contract (PARTICIPATED): ", response);
+		return response.participated;
+	};
 
-    console.log("queried smart contract: ", response);
-    setParticipants(response.all_participants);
-  };
+	const queryLastWinner = async (): Promise<string> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
 
-  const queryParticipated = async () => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+		type WinnerResponse = { last_winner: string };
+		let response: WinnerResponse;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { get_last_winner: {} },
+			}) as WinnerResponse;
+		} catch (e) {
+			console.log(`error quering last winner: query contract error`);
+			return "";
+		}
+		if ('err"' in response!) {
+			console.log(`error quering last winner: ${response}`);
+			return "";
+		}
+		console.log("queried smart contract: ", response!);
+		return response!.last_winner;
+	};
 
-    type DidIParticipateResponse = { participated: boolean };
+	const queryOwner = async (): Promise<string> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
+		console.dir(readOnlySecretjs, { depth: null });
 
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { did_i_participate: { address: myWalletAddr } },
-    }) as DidIParticipateResponse;
+		type OwnerResponse = { owner: string };
+		let response: OwnerResponse;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { get_owner: {} },
+			}) as OwnerResponse;
+		} catch (e) {
+			console.log(`error quering owner: query contract error`);
+			return "";
+		}
+		if ('err"' in response!) {
+			console.log(`error quering owner: ${response}`);
+			return "";
+		}
+		console.log("queried smart contract: ", response!);
+		console.log("owner is: " + response!.owner)
+		return response!.owner;
+	};
 
-    // Check if response is an object and contains the 'err' property
-    if (response && typeof response === 'object' && 'err' in response) {
-      throw new Error(`Query failed with the following err: ${response.err}`);
-    }
+	const queryParticipantsCount = async (): Promise<number> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
 
-    console.log("queried smart contract (PARTICIPATED): ", response);
-    setIsParticipant(response.participated ? "yes" : "no");
-  };
+		type NumOfParticipantsResponse = { num: number };
+		let response: NumOfParticipantsResponse;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { get_num_of_participants: {} },
+			}) as NumOfParticipantsResponse;
+		} catch (e) {
+			console.log(`error quering participant count: query contract error`);
+			return 0;
+		}
+		if ('err"' in response!) {
+			console.log(`error quering participant count: ${response}`);
+			return 0;
+		}
+		console.log("queried smart contract: ", response!);
+		console.log("participants count: " + response!.num);
+		setParticipantsCount(response!.num);
+		return response!.num
+	};
 
-  const queryLastWinner = async () => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+	const queryParticipationFee = async (): Promise<number> => {
+		const readOnlySecretjs = new SecretNetworkClient({
+			url: lcdUrl,
+			chainId: chainId,
+		});
 
-    type WinnerResponse = { last_winner: string };
+		type FeeResponse = { participation_fee_uscrt: string };
+		let response: FeeResponse;
+		try {
+			response = await readOnlySecretjs.query.compute.queryContract({
+				contract_address: contractAddress,
+				code_hash: contractCodeHash,
+				query: { get_participation_fee: {} },
+			}) as FeeResponse;
+		} catch (e) {
+			console.log(`error quering participation fee: query contract error`);
+			return 0;
+		}
 
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { get_last_winner: {} },
-    }) as WinnerResponse;
+		if ('err"' in response) {
+			console.log(`error quering participation fee: query contract error`);
+			return 0;
+		}
+		console.log("queried smart contract: ", response);
+		console.log("SCRT NEEDED: ", convertUscrtToScrt(response.participation_fee_uscrt));
+		return convertUscrtToScrt(response.participation_fee_uscrt)
+	};
 
-    if ('err"' in response) {
-      throw new Error(
-        `Query failed with the following err: ${JSON.stringify(response)}`
-      );
-    }
-    console.log("queried smart contract: ", response);
-    setLastWinner(response.last_winner);
-  };
+	const handleParticipate = async () => {
+		// Create the participation message
+		const participationMsg = new MsgExecuteContract({
+			sender: secretjs!.address,
+			contract_address: contractAddress,
+			code_hash: contractCodeHash,
+			msg: { participate: {} }, // The message to send to the contract
+			sent_funds: [{ amount: convertScrtToUscrt(participationFeeScrt), denom: "uscrt" }], // Correct property name for funds
+		});
 
-  const queryOwner = async () => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+		console.log("Participation Message:", participationMsg);
 
-    type OwnerResponse = { owner: string };
+		try {
+			// Broadcast the participation message
+			const tx = await secretjs!.tx.broadcast([participationMsg], {
+				gasLimit: 200_000, // Specify the gas limit
+			});
 
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { get_owner: {} },
-    }) as OwnerResponse;
+			if (tx.rawLog.toLowerCase().includes("error")) {
+				alert(`Query failed with the following err: ${JSON.stringify(tx)}`)
+				return
+			}
 
-    if ('err"' in response) {
-      throw new Error(
-        `Query failed with the following err: ${JSON.stringify(response)}`
-      );
-    }
-    console.log("queried smart contract: ", response);
-    console.log("owner is: " + response.owner)
-    let yourAddr = await getKeplrWalletAddress();
-    console.log("you are: " + yourAddr);
-    setOwnerText(response.owner);
+			console.log("Transaction Response:", tx);
+			alert("Participation successful!");
+		} catch (error) {
+			console.error("Error during participation:", error);
+			alert("Participation failed. Please check the console for more details.");
+		}
+		await queryLotteryInfo();
+	};
 
-    if (yourAddr == response.owner) {
-      setImOwner(true);
-    }
-  };
+	const handleEndLottery = async () => {
+		// Create the participation message
+		const endLotteryMsg = new MsgExecuteContract({
+			sender: secretjs!.address,
+			contract_address: contractAddress,
+			code_hash: contractCodeHash,
+			msg: { end_lottery: {} }, // The message to send to the contract
+		});
 
-  const queryParticipantsCount = async (): Promise<number> => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+		console.log("End Lottery Message:", endLotteryMsg);
 
-    type NumOfParticipantsResponse = { num: number };
+		try {
+			// Broadcast the participation message
+			const tx = await secretjs!.tx.broadcast([endLotteryMsg], {
+				gasLimit: 200_000, // Specify the gas limit
+			});
 
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { get_num_of_participants: {} },
-    }) as NumOfParticipantsResponse;
+			if (tx.rawLog.toLowerCase().includes("error")) {
+				alert(`Query failed with the following err: ${JSON.stringify(tx)}`)
+				return
+			}
 
-    if ('err"' in response) {
-      throw new Error(
-        `Query failed with the following err: ${JSON.stringify(response)}`
-      );
-    }
-    console.log("queried smart contract: ", response);
-    console.log("participants count: " + response.num);
-    setParticipantsCount(response.num);
-    return response.num
-  };
+			console.log("Transaction Response:", tx);
+			alert("end of lottery is successful!");
+		} catch (error) {
+			console.error("Error during end lottery:", error);
+			alert("end lottery failed. Please check the console for more details.");
+		}
+		await queryLotteryInfo();
+	};
 
-  const queryParticipationFee = async (): Promise<number> => {
-    const readOnlySecretjs = new SecretNetworkClient({
-      url: lcdUrl,
-      chainId: chainId,
-    });
+	return (
+		<div style={{ padding: "20px" }}>
+			<div style={{ marginTop: "20px", textAlign: "center" }}>
+				<h1>⭐lottery⭐</h1>
+			</div>
+			<h1>owner {owner}</h1>
+			<h1>winning pool {winningPool} SCRT</h1>
+			{(secretjs != undefined) && isParticipant == "no" && (
+				<button onClick={handleParticipate}>participate</button>
+			)}
+			{((secretjs != undefined) && (secretjs.address == owner)) && (
+				<button onClick={handleEndLottery}>end lottery</button>
+			)}
+			<div style={{ marginTop: "20px" }}>
+				<h3>participation fee: {participationFeeScrt} SCRT</h3>
+				<h3>participated: {isParticipant}</h3>
+				<h3>last winner: {lastWinner}</h3>
+				<h3>participants - {participantsCount}:</h3>
+				<h3>{participants}</h3>
+			</div>
 
-    type FeeResponse = { participation_fee_uscrt: string };
-
-    const response = await readOnlySecretjs.query.compute.queryContract({
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      query: { get_participation_fee: {} },
-    }) as FeeResponse;
-
-    if ('err"' in response) {
-      throw new Error(
-        `Query failed with the following err: ${JSON.stringify(response)}`
-      );
-    }
-    console.log("queried smart contract: ", response);
-    console.log("SCRT NEEDED: ", convertUscrtToScrt(response.participation_fee_uscrt));
-
-    setParticipationFeeScrt(convertUscrtToScrt(response.participation_fee_uscrt));
-    return convertUscrtToScrt(response.participation_fee_uscrt)
-  };
-
-  const handleParticipate = async () => {
-    // Create the participation message
-    const participationMsg = new MsgExecuteContract({
-      sender: secretjs!.address,
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      msg: { participate: {} }, // The message to send to the contract
-      sent_funds: [{ amount: convertScrtToUscrt(participationFeeScrt), denom: "uscrt" }], // Correct property name for funds
-    });
-
-    console.log("Participation Message:", participationMsg);
-
-    try {
-      // Broadcast the participation message
-      const tx = await secretjs!.tx.broadcast([participationMsg], {
-        gasLimit: 200_000, // Specify the gas limit
-      });
-
-      console.log("Transaction Response:", tx);
-      alert("Participation successful!");
-    } catch (error) {
-      console.error("Error during participation:", error);
-      alert("Participation failed. Please check the console for more details.");
-    }
-
-  };
-
-  const handleEndLottery = async () => {
-    // Create the participation message
-    const endLotteryMsg = new MsgExecuteContract({
-      sender: secretjs!.address,
-      contract_address: contractAddress,
-      code_hash: contractCodeHash,
-      msg: { end_lottery: {} }, // The message to send to the contract
-    });
-
-    console.log("End Lottery Message:", endLotteryMsg);
-
-    try {
-      // Broadcast the participation message
-      const tx = await secretjs!.tx.broadcast([endLotteryMsg], {
-        gasLimit: 200_000, // Specify the gas limit
-      });
-
-      if (tx.rawLog.toLowerCase().includes("error")) {
-        alert(`Query failed with the following err: ${JSON.stringify(tx)}`)
-        return
-      }
-
-      console.log("Transaction Response:", tx);
-      alert("end of lottery is successful!");
-    } catch (error) {
-      console.error("Error during end lottery:", error);
-      alert("end lottery failed. Please check the console for more details.");
-    }
-
-  };
-
-  return (
-    <div style={{ padding: "20px" }}>
-      <h1>lottery</h1>
-      <h1>owner {owner}</h1>
-      <h1>winning pool {winningPool} SCRT</h1>
-      {isWalletConnected && isParticipant == "no" && (
-        <button onClick={handleParticipate}>participate</button>
-      )}
-      {imOwner && (
-        <button onClick={handleEndLottery}>end lottery</button>
-      )}
-      <div style={{ marginTop: "20px" }}>
-        <h3>participation fee: {participationFeeScrt} SCRT</h3>
-        <h3>participated: {isParticipant}</h3>
-        <h3>last winner: {lastWinner}</h3>
-        <h3>participants - {participantsCount}:</h3>
-        <h3>{participants}</h3>
-      </div>
-
-      <div style={{ marginTop: "20px", textAlign: "right" }}>
-        <button onClick={requestKeplr}>{connectKeplrBtnText}</button>
-      </div>
-    </div>
-  );
+			<div style={{ marginTop: "20px", textAlign: "right" }}>
+				<button onClick={toggleConnectWallet}>{connectWalletBtnText}</button>
+			</div>
+		</div>
+	);
 };
 
 export default App;
