@@ -9,7 +9,7 @@ let wallet: Wallet;
 let chainId: string;
 let lcdUrl: string;
 const network_config = process.env.NETWORK!;
-//console.log("network: " + network_config);
+console.log("network: " + network_config);
 
 if (network_config == "0") {// localnet
 	chainId = process.env.CHAIN_ID_LOCALNET!;
@@ -20,7 +20,6 @@ if (network_config == "0") {// localnet
 	lcdUrl = process.env.LCD_URL_TESTNET!;
 	wallet = new Wallet(process.env.MNEMONIC_TESTNET!);
 };
-
 //console.dir(wallet, { depth: null });
 //console.dir(chainId, { depth: null });
 //console.dir(lcdUrl, { depth: null });
@@ -51,7 +50,7 @@ let upload_contract = async () => {
 			gasLimit: 10_000_000,
 		}
 	);
-	//console.dir(tx , { depth: null }); // IMPORTANT FOR DEBUGGING
+	//console.dir(tx, { depth: null }); // IMPORTANT FOR DEBUGGING
 	//console.log("rawlog: " + tx.rawLog)
 	codeId = Number(
 		tx.arrayLog!.find((log) => log.type === "message" && log.key === "code_id")!
@@ -84,4 +83,6 @@ let upload_contract = async () => {
 };
 
 await upload_contract();
+
+
 

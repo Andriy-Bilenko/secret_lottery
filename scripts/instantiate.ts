@@ -33,10 +33,11 @@ const secretjs = new SecretNetworkClient({
 	walletAddress: wallet!.address,
 });
 
-//console.log(secretjs);
+console.log(secretjs);
+console.log("codeId = " + codeId);
+console.log("code hash = " + contractCodeHash);
 
 let contractAddress: string;
-
 // instantiate the contract
 let instantiate_contract = async (participationFeeUscrt: string) => {
 	// Create an instance of the Counter contract, providing a starting count
@@ -80,3 +81,4 @@ let instantiate_contract = async (participationFeeUscrt: string) => {
 };
 
 await instantiate_contract("500000");
+
