@@ -72,4 +72,19 @@ secretcli tx compute execute secret15ueye5z9eua72wvdpkspca7x3c8ehx4vz2km4t '{"pa
 secretcli tx compute execute secret15ueye5z9eua72wvdpkspca7x3c8ehx4vz2km4t '{"end_lottery": {}}' --from a  --gas-prices 0.1uscrt -y
 ```
 
+## Demo
+Successfully deployed secret lottery smart contract on the testnet and built user-friendly frontend (it is hosted on ipfs, so you can try it out at [https://bafybeiejwlx5fpyww7zk4stmwi5wetim2jyidtpkpyltdaxhzxn36fxcfe.ipfs.flk-ipfs.xyz/](https://bafybeiejwlx5fpyww7zk4stmwi5wetim2jyidtpkpyltdaxhzxn36fxcfe.ipfs.flk-ipfs.xyz/))
 
+![gif](https://github.com/Andriy-Bilenko/secret_lottery/raw/main/res/working.gif)
+
+
+
+
+
+If you ran into some issues by any chance or need to contact the developer, it would be great to recieve your valuable feedback on email: *bilenko.a.uni@gmail.com*.
+
+<div align="right">
+<table><td>
+<a href="#start-of-content">↥ Scroll to top</a>
+</td></table>
+</div>

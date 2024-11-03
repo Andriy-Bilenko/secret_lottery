@@ -21,4 +21,5 @@ contract.wasm*
 
 node_modules/
 dist/
+build/
 
