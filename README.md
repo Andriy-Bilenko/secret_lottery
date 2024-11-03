@@ -75,8 +75,7 @@ secretcli tx compute execute secret15ueye5z9eua72wvdpkspca7x3c8ehx4vz2km4t '{"en
 ## Demo
 Successfully deployed secret lottery smart contract on the testnet and built user-friendly frontend (it is hosted on ipfs, so you can try it out at [https://bafybeiejwlx5fpyww7zk4stmwi5wetim2jyidtpkpyltdaxhzxn36fxcfe.ipfs.flk-ipfs.xyz/](https://bafybeiejwlx5fpyww7zk4stmwi5wetim2jyidtpkpyltdaxhzxn36fxcfe.ipfs.flk-ipfs.xyz/))
 
-![gif](https://github.com/Andriy-Bilenko/secret_lottery/raw/main/res/working.gif)
-
+![gif](https://github.com/Andriy-Bilenko/secret_lottery/blob/main/res/working.gif)
 
 
 
